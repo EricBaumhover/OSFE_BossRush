@@ -42,6 +42,9 @@
       <HintPath>E:\Steam\steamapps\common\One Step From Eden\OSFE_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="E7.Introloop">
+      <HintPath>E:\Steam\steamapps\common\One Step From Eden\OSFE_Data\Managed\E7.Introloop.dll</HintPath>
+    </Reference>
     <Reference Include="Rewired_Core">
       <HintPath>E:\Steam\steamapps\common\One Step From Eden\OSFE_Data\Managed\Rewired_Core.dll</HintPath>
       <Private>False</Private>
