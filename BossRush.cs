@@ -24,24 +24,36 @@ namespace BossRush
     [HarmonyPatch(typeof(WorldBar), nameof(WorldBar.GenerateWorldBar))]
     static class BossRush_ZoningPatches
     {
+        //Developer variable to test final bosses.
         public static bool final_test = false;
 
+        //Generates custom world bar if boss rush is selected.
         static bool Prefix(WorldBar __instance, int numSteps)
         {
             
             Debug.Log("Boss Rush ? " + BossRush_MainControl.boss_rush);
+            //Value set by button on main menu
             if (BossRush_MainControl.boss_rush)
             {
+                //IDK, Might help with music erros.
                 S.I.muCtrl.StopIntroLoop();
+                //Delete all previous zone dots.
                 foreach (Component component in __instance.zoneDotContainer)
                     UnityEngine.Object.Destroy((UnityEngine.Object)component.gameObject);
+                //Clear deleted zone dots from lists/
                 __instance.currentZoneDots.Clear();
                 __instance.currentZoneSteps.Clear();
+
+                //From original code.
                 if (__instance.btnCtrl.hideUICounter < 1)
                     __instance.detailPanel.gameObject.SetActive(true);
-                //__instance.ResetZoneVars();
-                if (__instance.runCtrl.currentWorld.nameString == "Genocide")
+
+                //__instance.ResetZoneVars(); //This line is part of original code, but not necessary often.
+
+                //If else to decide which generation function to use.
+                if (__instance.runCtrl.currentWorld.nameString == "Genocide") 
                 {
+                    //These music pauses might not do anything.
                     S.I.muCtrl.PauseIntroLoop(true);
                     CreateGenocide(__instance, numSteps);
                 }
@@ -60,8 +72,10 @@ namespace BossRush
                     S.I.muCtrl.PauseIntroLoop(true);
                     CreateBossWorld(__instance, numSteps);
                 }
+                //IDK what this does but i guess its important
                 __instance.runCtrl.currentRun.lastWorldGenOrigin = __instance.runCtrl.currentRun.currentWorldGen;
 
+                //Draw lines in ui
                 foreach (ZoneDot currentZoneDot in __instance.currentZoneDots)
                 {
                     //Debug.Log("Hi");
@@ -71,29 +85,44 @@ namespace BossRush
                 //Debug.Log("Hello");
                 S.I.shopCtrl.baseRefillCost = 20;
 
+                //Set selection marker for ui.
                 __instance.selectionMarker.transform.position = __instance.currentZoneDots[0].transform.position;
+                //Dont call original function.
                 return false;
             } 
             else
             {
+                //Use original
                 return true;
             }
         }
 
+        //Generates world with a normal boss.
         static void CreateBossWorld(WorldBar bar, int numSteps)
         {
+            //TODO
             List<ZoneDot> zoneDotList1 = new List<ZoneDot>();
+            //List of all remaining normal worlds.
             List<string> stringList = new List<string>((IEnumerable<string>)bar.runCtrl.currentRun.unvisitedWorldNames);
+            //From original code
             int num1 = 100;
+            //If testing final bosses, make it think there are no more remaining worlds.
             if (final_test) stringList.Clear();
+            //Variable true if you are before final bosses.
             bool beforeFinal = (stringList.Count() == 0);
+            //Variable true if shops are a thing.
             bool shop = !(S.I.runCtrl.currentRun.shopkeeperKilled || S.I.runCtrl.currentRun.beingID == "Shopkeeper");
+            //Number of zone steps to generate. Add two more if before final world.
             int num2 =  beforeFinal ? 6 : 4;
+            //Per step list of zone dots.
             List<ZoneDot> zoneDotList3 = new List<ZoneDot>();
+            //
             RectTransform rectTransform = null;
 
+            //Loop through each step (collumn)
             for (int index1 = 1; index1 <= num2; ++index1)
             {
+                //Bunch of stuff which makes it look right. From original function.
                 rectTransform = new GameObject("ZoneStep").AddComponent<RectTransform>();
                 List<ZoneDot> zoneDotList2 = new List<ZoneDot>();
                 Vector3 vector3 = bar.zoneDotContainer.transform.position - new Vector3((float)((double)bar.width / 2.0 - (double)bar.width / (double)(Mathf.Clamp(numSteps, 2, numSteps) - 1) * (double)index1) * bar.zoneDotContainer.lossyScale.x, 0.0f, 0.0f);
@@ -102,61 +131,76 @@ namespace BossRush
                 rectTransform.transform.position = vector3;
                 rectTransform.sizeDelta = new Vector2(10f, (float)num1);
 
+                //How many dots per collumn.
                 var max = Math.Max(Math.Min(stringList.Count, 3), 1);
+                //If not the last one, default to 1
                 if (index1 < num2)
                 {
                     max = 1;
                 }
+                //If shop exists and its a loot spot, there should be 2
                 if (((index1 == 2 && !beforeFinal) || index1 == 5) && shop)
                 {
                     max = 2;
                 }
+                //If testing final bosses, have three world options anyway.
                 if (final_test && index1==num2)
                 {
                     max = 3;
                 }
                 for (int index2 = 1; index2 <= max; ++index2)
                 {
-                    //Debug.Log(index1);
+                    //Create zone dot from prefab.
                     ZoneDot zoneDot = UnityEngine.Object.Instantiate<ZoneDot>(bar.zoneDotPrefab, bar.transform.position, bar.transform.rotation, rectTransform.transform);
+                    //Specify step of dot.
                     zoneDot.stepNum = index1;
+                    //List2 is the step list.
                     zoneDotList2.Add(zoneDot);
+                    //Zone dot needs to know its world bar.
                     zoneDot.worldBar = bar;
+                    //Set ctrls
                     zoneDot.idCtrl = bar.idCtrl;
                     zoneDot.btnCtrl = bar.btnCtrl;
+                    //Set name of dot.
                     zoneDot.transform.name = "ZoneDot - Step: " + (object)index1 + " - " + (object)index2;
+                    //Use world selection spacing for everything.
                     zoneDot.verticalSpacing = bar.defaultVerticalSpacing;
-                    //if (index1 == num2)
                     zoneDot.verticalSpacing += 7f;
+                    //Decide what row comes next
                     int index3 = bar.runCtrl.NextWorldRand(0, stringList.Count);
-                    if (index1 == 1 || (beforeFinal&&index1==4))
+                    //Figure out what type to make the zone.
+                    if (index1 == 1 || (beforeFinal&&index1==4)) 
                     {
                         zoneDot.SetType(ZoneType.Campsite);
                     }
-                    else if (index2 == 1 && shop && ((!beforeFinal && index1 == 2) || (beforeFinal && index1 == 5)))
+                    //Checks if it should be a shop.
+                    else if (index2 == 1 && shop && ((!beforeFinal && index1 == 2) || (beforeFinal && index1 == 5))) 
                     {
                         zoneDot.SetType(ZoneType.Shop);
                     }
-                    else if (((index1 == 2 || index1==5) && index2 == 2) || ((!shop || beforeFinal) && (index1==2 || index1==5) && index2 == 1)) 
+                    //Put battles for loot on the second dot in collumns with shop, or replace shop if shop doesnt exist.
+                    else if (((index1 == 2 || index1==5) && index2 == 2) || ((!shop || beforeFinal) && (index1==2 || index1==5) && index2 == 1))
                     {
                         zoneDot.SetType(ZoneType.Battle);
                     }
+                    //Boss on 3rd, almost guarenteed 1 and 2 will be taken.
                     else if (index1 <= 3)
                     {
-                        //Debug.Log("Ey");
                         zoneDot.SetType(ZoneType.Boss);
 
+                        //Safety (Might be necessary to go to next world)
                         if (stringList.Count != 0)
                         {
                             zoneDot.worldName = stringList[Math.Min(index3, stringList.Count - 1)];
                         }
                         else
                         {
+                            //Decide final world, if final test decide based on # in collumn.
                             if ((!final_test && bar.runCtrl.savedBossKills >= 7) ||  (final_test && index2 == 1))
                             {
                                 zoneDot.worldName = "Genocide";
                             }
-                            else if ((!final_test && bar.runCtrl.savedBossKills >= 1) || (final_test && index2 == 1))
+                            else if ((!final_test && bar.runCtrl.savedBossKills >= 1) || (final_test && index2 == 2))
                             {
                                 zoneDot.worldName = "Normal";
                             }
@@ -166,22 +210,25 @@ namespace BossRush
                             }
                         }
 
+                        //Set world stuff.
                         zoneDot.world = bar.runCtrl.worlds[zoneDot.worldName];
                         zoneDot.imageName = zoneDot.world.iconName;
                     }
+                    //World selection dots.
                     else
                     {
+                        //Use random next boss world.
                         if (stringList.Count > 0)
                         {
-                            //Debug.Log("Yo");
                             zoneDot.worldName = stringList[Math.Min(index3, stringList.Count - 1)];
                             zoneDot.world = bar.runCtrl.worlds[zoneDot.worldName];
                             zoneDot.imageName = zoneDot.world.iconName;
                             stringList.Remove(stringList[Math.Min(index3, stringList.Count - 1)]);
                         }
+                        //Final world
                         else
                         {
-                            //Debug.Log("Dog");
+                            //bar.runCtrl.savedBossKills is the correct variable for this type of thing.
                             if ((!final_test && bar.runCtrl.savedBossKills >= 7) || (final_test && index2 == 1))
                             {
                                 zoneDot.worldName = "Genocide";
@@ -200,21 +247,28 @@ namespace BossRush
                             
 
                         }
-                        //Debug.Log("Hey");
+                        //Set world stuff.
                         zoneDot.world = bar.runCtrl.worlds[zoneDot.worldName];
                         zoneDot.SetType(ZoneType.World);
                     }
+                    //Set zone dot position based on indices.
                     zoneDot.transform.position = vector3 + new Vector3(0.0f, ((float)(max - 1) - (float)(index2 - 1)) * zoneDot.verticalSpacing * bar.rect.localScale.y, 0.0f);
+                    //Add to temp step list.
                     zoneDotList3.Add(zoneDot);
                 }
+                //Add step
                 bar.currentZoneSteps.Add(zoneDotList2);
+                //Add to temp total list of dots.
                 zoneDotList1.AddRange(zoneDotList3);
+                //Add to WorldBar's list of dots.
                 foreach (ZoneDot dot in zoneDotList3)
                 {
                     bar.currentZoneDots.Add(dot);
                 }
+                //Clear temp list.
                 zoneDotList3.Clear();
             }
+            //Decide connections.
             for (int i = 0; i < bar.currentZoneSteps.Count(); i++)
             {
                 for (int j = 0; j < bar.currentZoneSteps[i].Count; j++)
@@ -252,6 +306,7 @@ namespace BossRush
             }
         }
 
+        //Generates world with only Serif boss.
         static void CreateGenocide(WorldBar bar, int numSteps)
         {
             List<ZoneDot> zoneDotList1 = new List<ZoneDot>();
@@ -300,8 +355,11 @@ namespace BossRush
  
             zoneDot.transform.position = vector3 + new Vector3(0.0f, 0.0f, 0.0f);
         }
+
+        //Generates world with Battle with Terrable at the start, and the world dot for eden.
         static void CreatePacifist(WorldBar bar, int numSteps)
         {
+            //Lot of stuff the same as boss world generator, but with only 1 zone dot per step.
             List<ZoneDot> zoneDotList1 = new List<ZoneDot>();
             int num1 = 100;
             var num2 = 2;
@@ -333,6 +391,7 @@ namespace BossRush
 
                 if (index1 == 1)
                 {
+                    //Terrable does not spawn in Boss zones, only battle ones (idk why)
                     zoneDot.SetType(ZoneType.Battle);
                 }
                 else if (index1 == 2)
@@ -357,6 +416,7 @@ namespace BossRush
             
         }
 
+        //Basically the same as pacifist.
         static void CreateNormal(WorldBar bar, int numSteps)
         {
             List<ZoneDot> zoneDotList1 = new List<ZoneDot>();
@@ -390,6 +450,7 @@ namespace BossRush
 
                 if (index1 == 1)
                 {
+                    //Wall shows up on Boss zones unlike Terrable.
                     zoneDot.SetType(ZoneType.Boss);
                 }
                 else if (index1 == 2)
@@ -416,6 +477,7 @@ namespace BossRush
 
     }
 
+    //Patches going to next zone to make the zone before the world selection go to a world on selecting the worlds.
     [HarmonyPatch]
     [HarmonyPatch(typeof(RunCtrl), nameof(RunCtrl.GoToNextZone))]
     static class BossRush_RunCtrlPatches
@@ -434,53 +496,42 @@ namespace BossRush
         }
     }
 
-    [HarmonyPatch(typeof(SpawnCtrl), nameof(SpawnCtrl.SpawnBoss))]
-    static class BossRush_SpawnBoss
-    {
-        /*static bool Prefix(SpawnCtrl __instance, int xPos, int yPos)
-        {
-            var factor1 = __instance.bossesToSpawn.Count() > 0;
-            var factor2 = __instance.bossesToSpawn[0] != "BossGate";
-            var factor3 = S.I.runCtrl.currentZoneDot.type == ZoneType.Battle;
-            var factor4 = S.I.runCtrl.currentRun.worldName == "Pacifist";
-            Debug.Log("Factor1: " + factor1);
-            Debug.Log("Factor2: " + factor2);
-            Debug.Log("Factor3: " + factor3);
-            Debug.Log("Factor4: " + factor4);
-            return !(factor1 && factor2 && factor3 && factor4);
-        }*/
-    }
-
     [HarmonyPatch(typeof(SpawnCtrl), nameof(SpawnCtrl.SpawnZoneC))]
     static class BossRush_SpawnZone
     {
 
         static void Postfix(SpawnCtrl __instance, ZoneType zoneType)
         {
+            //If not boss rush dont do anything.
             if (!BossRush_MainControl.boss_rush) return;
+            //If boss set rewards.
             if (zoneType == ZoneType.Boss)
             {
                 S.I.batCtrl.experienceGained = 600;
+                //Run couroutine to add money right after boss starts.
                 __instance.StartCoroutine(WaitAndMoney());
                 S.I.batCtrl.noHitMoneyBonus = 150;
                 if (S.I.runCtrl.currentRun.worldName == "Normal")
                 {
+                    //IDK what this does but im too scared to remove it.
                     __instance.bossesToSpawn.Insert(0, "BossGate");
                 }
             } 
             else if (zoneType == ZoneType.Battle && S.I.runCtrl.currentRun.worldName != "Pacifist")
             {
+                //Spawn sera piles through couroutine.
                 __instance.StartCoroutine(WaitAndSera());
             } 
             else if (zoneType == ZoneType.Campsite)
             {
                 var list = S.I.batCtrl.currentPlayer.pactObjs.ToArray();
+                //Remove pacts when going to a campfire.
                 foreach (var pactObject in list)
                 {
                     if (!pactObject.hellPass) pactObject.FinishPact();
                 }
-                //S.I.deCtrl.CreatePlayerItems(S.I.batCtrl.currentPlayer);
                 
+                //Play correct idle environment music when going to a campfire. Fixing problems with world before final boss.
                 var boss_to_audio = new Dictionary<string, string>()
                 {
                     {"Gunner","Fire"}, {"Saffron","Fire"}, {"Shiso","Forest"}, {"Hazel","Forest"}, {"Reva","Ruins"}, {"Terra","Ruins"}, {"Selicy","Ice"}, {"Violette","Ice"} 
@@ -507,6 +558,7 @@ namespace BossRush
 
     }
 
+    //Don't spawn battle zone if boss rush.
     [HarmonyPatch(typeof(SpawnCtrl), nameof(SpawnCtrl.SpawnBattleZone))]
     static class BossRush_SpawnBattleZone
     {
@@ -516,6 +568,7 @@ namespace BossRush
         }
     }
 
+    //Make allies show up 100% of the time.
     [HarmonyPatch(typeof(BC), nameof(BC._BattleAssists))]
     static class BossRush_BattleAssists
     {
@@ -524,20 +577,10 @@ namespace BossRush
             if (BossRush_MainControl.boss_rush) chance = 1;
             return true;
         }
+
     }
 
-    /*[HarmonyPatch(typeof(Boss), nameof(Boss.Spare))]
-    static class BossRush_Spare
-    {
-
-        public static void Postfix(Boss __instance, ZoneDot nextZoneDot)
-        {
-            Debug.Log("Stopping music after sparing boss.");
-            S.I.muCtrl.Stop();
-            S.I.muCtrl.audioSource.clip = null;
-        }
-    }*/
-
+    //Wait shit TODO
     [HarmonyPatch(typeof(MusicCtrl), nameof(MusicCtrl.Play))]
     static class BossRush_Music
     {
@@ -547,17 +590,19 @@ namespace BossRush
         }
     }
 
+    //Button to start boss rush.
     public class BossRushButton : NavButton
     {
         static Sprite sprite = null;
 
         protected override void Awake()
         {
-            Debug.Log("Awake");
+            //Debug.Log("Awake");
             S.I.mainCtrl.StartCoroutine(LoadSprite());
             base.Awake();
         }
 
+        //Highlight Button
         public override void Focus(int playerNum = 0)
         {
             var image = gameObject.GetComponent<Image>();
@@ -573,18 +618,23 @@ namespace BossRush
             base.Focus(playerNum);
         }
 
+        //Stop highlighting button.
         public override void UnFocus()
         {
             gameObject.GetComponent<Image>().sprite = AssetBundleManager.LoadAsset<Sprite>("sprites_ui", "Boss", out string err);
+            base.UnFocus();
         }
+
+        //On button push.
         public override void OnAcceptPress()
         {
             S.I.PlayOnce(this.btnCtrl.pierceSound, false);
+            //Open singleplayer menu.
             S.I.mainCtrl.OpenPanelSingpleplayer(S.I.heCtrl);
             BossRush_MainControl.boss_rush = true;
         }
 
-
+        //Load highlighted sprite.
         public IEnumerator LoadSprite()
         {
             Debug.Log("Loading sprite");
@@ -617,6 +667,7 @@ namespace BossRush
             request.Dispose();
         }
 
+        //Set to correct position.
         public void SetPosition(bool continueExists)
         {
             gameObject.GetComponent<RectTransform>().transform.localPosition = continueExists ? new Vector2(-Screen.width/50, 42*Screen.height/90) : new Vector2(-Screen.width/50, 42*Screen.height/90);
@@ -626,6 +677,7 @@ namespace BossRush
 
     public static class Util
     {
+        //Create boss rush button.
         public static BossRushButton CreateBossRushUI(ref Canvas canvas)
         {
             if (canvas != null)
@@ -666,6 +718,7 @@ namespace BossRush
                 Canvas canvas = null;
                 button = Util.CreateBossRushUI(ref canvas);
 
+                //Set main menu navigation.
                 var nav = button;
                 nav.up = __instance.quitButton;
                 nav.down = __instance.runCtrl.LoadedRunExists() ? __instance.continueButton : __instance.soloButton;
@@ -687,12 +740,14 @@ namespace BossRush
         [HarmonyPatch(typeof(MainCtrl), nameof(MainCtrl.OpenPanel))]
         static bool OpenPanel(MainCtrl __instance)
         {
+            //Turn off boss rush.
             if (S.I.btnCtrl.focusedButton != button) boss_rush = false;
             return true;
         }
 
     }
 
+    //Disables saving.
     [HarmonyPatch]
     static class BossRush_DisableSaving
     {
@@ -716,6 +771,7 @@ namespace BossRush
             return !BossRush_MainControl.boss_rush;
         }
 
+        //Disables saving 2: Electric boogaloo.
         [HarmonyPrefix]
         [HarmonyPatch(typeof(RunCtrl), nameof(RunCtrl.SaveRun))]
         static bool SaveRun(RunCtrl __instance)
@@ -739,6 +795,7 @@ namespace BossRush
             return !BossRush_MainControl.boss_rush;
         }
 
+        //Remove continue button stuff.
         [HarmonyPrefix]
         [HarmonyPatch(typeof(RunCtrl), nameof(RunCtrl.CreateNewRun))]
         static void CreateNewRun(RunCtrl __instance, int zoneNum, int worldTierNum, bool campaign, string seed)
